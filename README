@@ -3,6 +3,9 @@ OpenType font viewer
 
 This is an OpenType (or TrueType) font viewer Web application.
 
+Demo:
+<https://manakai.github.io/otfontviewer/>
+
 * Author
 
 Wakaba <wakaba@suikawiki.org>.
