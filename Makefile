@@ -14,6 +14,8 @@ updatenightly: #local/bin/pmbp.pl
 
 build: opentype.js components.js
 
+build-github-pages:
+
 opentype.js:
 	$(SAVEURL) $@ https://raw.githubusercontent.com/manakai/opentypejs/master/dist/opentype.js
 
