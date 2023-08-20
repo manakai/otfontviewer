@@ -14,17 +14,34 @@
         </tab-menu-extras>
       </tab-menu>
       <section>
-        <h1>Demo</h1>
+        <h1>OpenType font viewer</h1>
 
         <form is=upload-form>
-          <input type=file name=file multiple accept=".ttf, .ttc, .otf, .tte, .eot, .woff, .woff2">
+          <p>
+            <label>
+              Open a font file:
+              <input type=file name=file multiple accept=".ttf, .ttc, .otf, .tte, .eot, .woff, .woff2">
+            </label>
+        </form>
+        <form is=upload-form>
+          <p>
+            <label>
+              Open a font by URL:
+              <input type=url name=url>
+              <button type=submit>Open</button>
+            </label>
         </form>
 
         <ul class=logs></ul>
-        
+
+        <footer>
+          <p><a href=https://github.com/manakai/otfontviewer>Repository</a>
+          <p><sw-ads-notes></sw-ads-notes>
+        </footer>
       </section>
     </tab-set>
   </font-viewer>
+  <script src="https://manakai.github.io/js/global.js" async></script>
 
   <script>
 
@@ -1719,11 +1736,16 @@ var defineElement = function (def) {
         pcInit: function () {
           this.method = 'POST';
           this.action = 'javascript:';
-          this.elements.file.onchange = () => {
+          if (this.elements.file) this.elements.file.onchange = () => {
             var files = Array.prototype.slice.call (this.elements.file.files);
             this.elements.file.value = '';
             var fv = document.querySelector ('font-viewer');
             files.forEach (_ => fv.loadByBlob (_));
+          };
+          this.onsubmit = () => {
+            var url = this.elements.url.value;
+            var fv = document.querySelector ('font-viewer');
+            fv.loadByURL (url, {});
           };
         },
       },

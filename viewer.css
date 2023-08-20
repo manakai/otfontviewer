@@ -646,6 +646,26 @@ glyph-data-props {
   font-size: 100%;
 }
 
+form[is=upload-form] label {
+  display: flex;
+  align-items: center;
+}
+
+form[is=upload-form] label input {
+  flex: 1;
+  margin: 0.5em;
+}
+
+.logs {
+  min-height: 30em;
+}
+
+footer {
+  color: gray;
+  background: transparent;
+  font-size: 80%;
+}
+
 /*
 
 Copyright 2022-2023 Wakaba <wakaba@suikawiki.org>.
