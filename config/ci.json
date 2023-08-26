@@ -1,5 +1,7 @@
 {
   "github": {
-    "pages": true
+    "pages": true,
+    "merger": true,
+    "gaa": true
   }
 }
