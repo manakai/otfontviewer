@@ -1492,7 +1492,7 @@ var defineElement = function (def) {
           times.start = performance.now ();
           return Promise.resolve ().then (code).then (font => {
             times.parsed = performance.now ();
-            addLog (font.names.fullName.en);
+            addLog ((font.names.fullName || font.names.fontFamily || {}).en);
             addLog ('parse: ' + (times.parsed - times.start));
             this._initFont (font);
             times.inited = performance.now ();
