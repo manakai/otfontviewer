@@ -3901,6 +3901,68 @@ TER.defs = {"dts":{"dtsjp1":[[null,["グレゴリオ暦西暦",["Y",0]]],[-96275
     } else if (type === 'pixels') {
       value = Math.ceil (value * 10) / 10;
       unit = 'px';
+    } else if (type === 'yen') {
+      e.textContent = '';
+
+      var neg = value < 0;
+      if (neg) value = -value;
+
+      var kei = Math.floor (value / 10000000000000000);
+      if (kei) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = kei;
+        e.appendChild (ve);
+        var ue = document.createElement ('number-unit');
+        ue.textContent = '京';
+        e.appendChild (ve);
+        e.appendChild (ue);
+      }
+      
+      var chou = Math.floor ((value % 10000000000000000) / 1000000000000);
+      if (chou) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = chou;
+        var ue = document.createElement ('number-unit');
+        ue.textContent = '兆';
+        e.appendChild (ve);
+        e.appendChild (ue);
+      }
+
+      var oku = Math.floor ((value % 1000000000000) / 100000000);
+      if (oku) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = oku;
+        var ue = document.createElement ('number-unit');
+        ue.textContent = '億';
+        e.appendChild (ve);
+        e.appendChild (ue);
+      }
+
+      var man = Math.floor ((value % 100000000) / 10000);
+      if (man) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = man;
+        var ue = document.createElement ('number-unit');
+        ue.textContent = '万';
+        e.appendChild (ve);
+        e.appendChild (ue);
+      }
+
+      var one = value % 10000;
+      if (one || ! e.children.length) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = one;
+        e.appendChild (ve);
+      }
+
+      if (neg) {
+        e.firstChild.textContent = "\u2212" + e.firstChild.textContent;
+      }
+
+      var ue = document.createElement ('number-unit');
+      ue.textContent = '円';
+      e.appendChild (ue);
+      return;
     }
     if (unit === '') {
       e.innerHTML = '<number-value></number-value>';
