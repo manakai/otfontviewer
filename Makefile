@@ -12,6 +12,8 @@ updatenightly: build #local/bin/pmbp.pl
 	$(GIT) add config opentype.js components.js
 	$(CURL) -sSLf https://raw.githubusercontent.com/wakaba/ciconfig/master/ciconfig | RUN_GIT=1 REMOVE_UNUSED=1 perl
 
+deps:
+
 build: opentype.js components.js
 
 build-github-pages:
