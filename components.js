@@ -681,7 +681,6 @@
           this.hidden = false;
           var ls = this.getAttribute ('labelset');
           if (ls) {
-            this.textContent = '';
             return getDef ('labelSet', ls).then (ls => {
               this.textContent = ls.getLabel (value);
             });
@@ -1376,7 +1375,7 @@
   }); // <toast-box>
   
   defs.loader.src = function (opts) {
-    if (!this.hasAttribute ('src')) return {};
+    if (!this.hasAttribute ('src')) return {data: []};
     var url = this.getAttribute ('src');
     if (opts.ref) {
       url += /\?/.test (url) ? '&' : '?';
@@ -1443,6 +1442,7 @@
         if (this.lcDataChanges) this.lcDataChanges.changed = true;
         this.lcRequestRender ();
       });
+        this.pcAC = new AbortController;
         this.load ({});
       }, // pcInit
 
@@ -1457,20 +1457,26 @@
           this.lcClearList ();
           this.pcNeedClearListContainer = true;
         }
-        return this.lcLoad (opts).then ((done) => {
+        this.pcAC.abort ();
+        this.pcAC = new AbortController;
+        let as = this.pcAC.signal;
+        return this.pcLoad (opts, as).then ((done) => {
           if (done) {
+            if (as.aborted) return;
             this.lcDataChanges.scroll = opts.scroll;
             return this.lcRequestRender ();
           }
         }).then (() => {
           if (!this.hasAttribute ('autoreload')) return;
+          if (as.aborted) return;
           var interval = this.lcGetNextInterval (opts.arInterval);
           clearTimeout (this.lcAutoReloadTimer);
           this.lcAutoReloadTimer = setTimeout (() => {
             this.load ({arInterval: interval});
           }, interval);
         }, (e) => {
-          if (!this.hasAttribute ('autoreload')) return;
+          if (!this.hasAttribute ('autoreload')) throw e;
+          if (as.aborted) throw e;
           var interval = this.lcGetNextInterval (opts.arInterval);
           clearTimeout (this.lcAutoReloadTimer);
           this.lcAutoReloadTimer = setTimeout (() => {
@@ -1525,7 +1531,7 @@
         return this.querySelector (this.lcGetListContainerSelector ());
       }, // lcGetListContainer
       
-      lcLoad: function (opts) {
+      pcLoad: function (opts, signal) {
         var resolve;
         var reject;
         this.loaded = new Promise ((a, b) => {
@@ -1540,14 +1546,18 @@
           e.hidden = true;
         });
         return getDef ("loader", this.getAttribute ('loader') || 'src').then ((loader) => {
-          return loader.call (this, opts);
+          if (signal.aborted) return;
+          return loader.call (this, {...opts, signal});
         }).then ((result) => {
+          if (signal.aborted) return;
           as.stageEnd ('loader');
           as.stageStart ('filter');
           return getDef ("filter", this.getAttribute ('filter') || 'default').then ((filter) => {
-            return filter.call (this, result);
+            if (signal.aborted) return;
+            return filter.call (this, result, {signal});
           });
         }).then ((result) => {
+          if (signal.aborted) return false;
           var newList = result.data || [];
           var prev = (opts.page === 'prev' ? result.next : result.prev) || {};
           var next = (opts.page === 'prev' ? result.prev : result.next) || {};
@@ -1609,7 +1619,7 @@
           as.end ({error: e});
           return false;
         });
-      }, // lcLoad
+      }, // pcLoad
 
       lcRequestRender: function () {
         clearTimeout (this.lcRenderRequestedTimer);
