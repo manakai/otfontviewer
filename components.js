@@ -1421,6 +1421,8 @@
     pcActionStatus: true,
     props: {
       pcInit: function () {
+        this.pcAC = new AbortController;
+        
         var selector = 'a.list-prev, a.list-next, button.list-prev, button.list-next, ' + this.lcGetListContainerSelector ();
       new MutationObserver ((mutations) => {
         mutations.forEach ((m) => {
@@ -1442,7 +1444,6 @@
         if (this.lcDataChanges) this.lcDataChanges.changed = true;
         this.lcRequestRender ();
       });
-        this.pcAC = new AbortController;
         this.load ({});
       }, // pcInit
 
@@ -1453,6 +1454,7 @@
         return interval;
       }, // lcGetNextInterval
       load: function (opts) {
+        if (!this.pcAC) return; // not yet initialized
         if (!opts.page || opts.replace) {
           this.lcClearList ();
           this.pcNeedClearListContainer = true;
