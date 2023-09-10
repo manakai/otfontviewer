@@ -1653,22 +1653,25 @@ var defineElement = function (def) {
             scroll: true,
           });
         });
-        $fill (e, {id, name: font.names.fullName.en,
-                   tableList: font.tableTags.map (_ => {
-                     return {tag: _};
-                   }),
-                   gsubFeatureList: uniq (((font.tables.gsub || {}).features || []).map (_ => _.tag)).map (_ => {
-                     return {tag: _};
-                   }),
-                   gposFeatureList: uniq (((font.tables.gpos || {}).features || []).map (_ => _.tag)).map (_ => {
-                     return {tag: _};
-                   }),
-                   gsubLookupSummary: uniq (((font.tables.gsub || {}).lookups || []).map (l => l.subtables.map (s => [l.lookupType, s.substFormat, s.lookupType, (s.extension || {}).substFormat])).flat ()).sort ((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]).map (_ => {
-                     return '[N['+_[0]+']], [N['+_[1]+']]'+(_[2]?' ([N['+_[2]+']], [N['+_[3]+']])':'');
-                   }).join ('; '),
-                   gposLookupSummary: uniq (((font.tables.gpos || {}).lookups || []).map (l => l.subtables.map (s => [l.lookupType, s.posFormat, s.extensionLookupType, (s.extension || {}).posFormat])).flat ()).sort ((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]).map (_ => {
-                     return '[N['+_[0]+']], [N['+_[1]+']]'+(_[2]?' ([N['+_[2]+']], [N['+_[3]+']])':'');
-                   }).join ('; ')});
+        $fill (e, {
+          id,
+          name: (font.names.fullName || font.names.fontFamily || {}).en,
+          tableList: font.tableTags.map (_ => {
+            return {tag: _};
+          }),
+          gsubFeatureList: uniq (((font.tables.gsub || {}).features || []).map (_ => _.tag)).map (_ => {
+            return {tag: _};
+          }),
+          gposFeatureList: uniq (((font.tables.gpos || {}).features || []).map (_ => _.tag)).map (_ => {
+            return {tag: _};
+          }),
+          gsubLookupSummary: uniq (((font.tables.gsub || {}).lookups || []).map (l => l.subtables.map (s => [l.lookupType, s.substFormat, s.lookupType, (s.extension || {}).substFormat])).flat ()).sort ((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]).map (_ => {
+            return '[N['+_[0]+']], [N['+_[1]+']]'+(_[2]?' ([N['+_[2]+']], [N['+_[3]+']])':'');
+          }).join ('; '),
+          gposLookupSummary: uniq (((font.tables.gpos || {}).lookups || []).map (l => l.subtables.map (s => [l.lookupType, s.posFormat, s.extensionLookupType, (s.extension || {}).posFormat])).flat ()).sort ((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]).map (_ => {
+            return '[N['+_[0]+']], [N['+_[1]+']]'+(_[2]?' ([N['+_[2]+']], [N['+_[3]+']])':'');
+          }).join ('; '),
+        });
         parent.appendChild (e);
 
         {
@@ -4116,7 +4119,7 @@ defineElement ({
 
   <template id=font-template>
     <header>
-      <h1 data-field=name></h1>
+      <h1 data-field=name data-empty=■></h1>
       <header-menu>
         <a data-href-template="#{id}-summary">Summary</a>
         <a data-href-template="#{id}-glyphs">Glyphs</a>
