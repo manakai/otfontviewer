@@ -681,7 +681,6 @@
           this.hidden = false;
           var ls = this.getAttribute ('labelset');
           if (ls) {
-            this.textContent = '';
             return getDef ('labelSet', ls).then (ls => {
               this.textContent = ls.getLabel (value);
             });
@@ -1376,7 +1375,7 @@
   }); // <toast-box>
   
   defs.loader.src = function (opts) {
-    if (!this.hasAttribute ('src')) return {};
+    if (!this.hasAttribute ('src')) return {data: []};
     var url = this.getAttribute ('src');
     if (opts.ref) {
       url += /\?/.test (url) ? '&' : '?';
@@ -1422,6 +1421,8 @@
     pcActionStatus: true,
     props: {
       pcInit: function () {
+        this.pcAC = new AbortController;
+        
         var selector = 'a.list-prev, a.list-next, button.list-prev, button.list-next, ' + this.lcGetListContainerSelector ();
       new MutationObserver ((mutations) => {
         mutations.forEach ((m) => {
@@ -1453,24 +1454,31 @@
         return interval;
       }, // lcGetNextInterval
       load: function (opts) {
+        if (!this.pcAC) return; // not yet initialized
         if (!opts.page || opts.replace) {
           this.lcClearList ();
           this.pcNeedClearListContainer = true;
         }
-        return this.lcLoad (opts).then ((done) => {
+        this.pcAC.abort ();
+        this.pcAC = new AbortController;
+        let as = this.pcAC.signal;
+        return this.pcLoad (opts, as).then ((done) => {
           if (done) {
+            if (as.aborted) return;
             this.lcDataChanges.scroll = opts.scroll;
             return this.lcRequestRender ();
           }
         }).then (() => {
           if (!this.hasAttribute ('autoreload')) return;
+          if (as.aborted) return;
           var interval = this.lcGetNextInterval (opts.arInterval);
           clearTimeout (this.lcAutoReloadTimer);
           this.lcAutoReloadTimer = setTimeout (() => {
             this.load ({arInterval: interval});
           }, interval);
         }, (e) => {
-          if (!this.hasAttribute ('autoreload')) return;
+          if (!this.hasAttribute ('autoreload')) throw e;
+          if (as.aborted) throw e;
           var interval = this.lcGetNextInterval (opts.arInterval);
           clearTimeout (this.lcAutoReloadTimer);
           this.lcAutoReloadTimer = setTimeout (() => {
@@ -1525,7 +1533,7 @@
         return this.querySelector (this.lcGetListContainerSelector ());
       }, // lcGetListContainer
       
-      lcLoad: function (opts) {
+      pcLoad: function (opts, signal) {
         var resolve;
         var reject;
         this.loaded = new Promise ((a, b) => {
@@ -1540,14 +1548,18 @@
           e.hidden = true;
         });
         return getDef ("loader", this.getAttribute ('loader') || 'src').then ((loader) => {
-          return loader.call (this, opts);
+          if (signal.aborted) return;
+          return loader.call (this, {...opts, signal});
         }).then ((result) => {
+          if (signal.aborted) return;
           as.stageEnd ('loader');
           as.stageStart ('filter');
           return getDef ("filter", this.getAttribute ('filter') || 'default').then ((filter) => {
-            return filter.call (this, result);
+            if (signal.aborted) return;
+            return filter.call (this, result, {signal});
           });
         }).then ((result) => {
+          if (signal.aborted) return false;
           var newList = result.data || [];
           var prev = (opts.page === 'prev' ? result.next : result.prev) || {};
           var next = (opts.page === 'prev' ? result.prev : result.next) || {};
@@ -1609,7 +1621,7 @@
           as.end ({error: e});
           return false;
         });
-      }, // lcLoad
+      }, // pcLoad
 
       lcRequestRender: function () {
         clearTimeout (this.lcRenderRequestedTimer);
@@ -3901,6 +3913,68 @@ TER.defs = {"dts":{"dtsjp1":[[null,["グレゴリオ暦西暦",["Y",0]]],[-96275
     } else if (type === 'pixels') {
       value = Math.ceil (value * 10) / 10;
       unit = 'px';
+    } else if (type === 'yen') {
+      e.textContent = '';
+
+      var neg = value < 0;
+      if (neg) value = -value;
+
+      var kei = Math.floor (value / 10000000000000000);
+      if (kei) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = kei;
+        e.appendChild (ve);
+        var ue = document.createElement ('number-unit');
+        ue.textContent = '京';
+        e.appendChild (ve);
+        e.appendChild (ue);
+      }
+      
+      var chou = Math.floor ((value % 10000000000000000) / 1000000000000);
+      if (chou) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = chou;
+        var ue = document.createElement ('number-unit');
+        ue.textContent = '兆';
+        e.appendChild (ve);
+        e.appendChild (ue);
+      }
+
+      var oku = Math.floor ((value % 1000000000000) / 100000000);
+      if (oku) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = oku;
+        var ue = document.createElement ('number-unit');
+        ue.textContent = '億';
+        e.appendChild (ve);
+        e.appendChild (ue);
+      }
+
+      var man = Math.floor ((value % 100000000) / 10000);
+      if (man) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = man;
+        var ue = document.createElement ('number-unit');
+        ue.textContent = '万';
+        e.appendChild (ve);
+        e.appendChild (ue);
+      }
+
+      var one = value % 10000;
+      if (one || ! e.children.length) {
+        var ve = document.createElement ('number-value');
+        ve.textContent = one;
+        e.appendChild (ve);
+      }
+
+      if (neg) {
+        e.firstChild.textContent = "\u2212" + e.firstChild.textContent;
+      }
+
+      var ue = document.createElement ('number-unit');
+      ue.textContent = '円';
+      e.appendChild (ue);
+      return;
     }
     if (unit === '') {
       e.innerHTML = '<number-value></number-value>';
