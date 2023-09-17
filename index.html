@@ -1533,7 +1533,7 @@ var defineElement = function (def) {
     c.glyphNumber = 0;
     if (c.glyphIndexMap || c.varGlyphIndexMap) {
       if (c.glyphIndexMap) c.glyphNumber += Object.keys (c.glyphIndexMap).length;
-      (c.varGlyphIndexMap || []).forEach (v => {
+      Object.keys (c.varGlyphIndexMap || {}).forEach (v => {
         c.glyphNumber += Object.keys (v).length;
       });
     }
@@ -2827,7 +2827,7 @@ defineElement ({
           var chars = [];
           var glyphs = [];
           cmaps.forEach (cmap => {
-            var t = (cmap.varGlyphIndexMap || [])[item.vsCode] || {};
+            var t = (cmap.varGlyphIndexMap || {})[item.vsCode] || {};
             var m = t[item.charCode];
             if (m === -1) {
               chars[item.charCode] = chars[item.charCode] || {
@@ -3490,7 +3490,7 @@ defineElement ({
         _cmap_items: function (page) {
           var cmap = this.cmap;
 
-          var lists = [[cmap.glyphIndexMap || [], null]].concat (Object.keys (cmap.varGlyphIndexMap || []).sort ((a, b) => a - b).map (_ => [cmap.varGlyphIndexMap[_], _]));
+          var lists = [[cmap.glyphIndexMap || {}, null]].concat (Object.keys (cmap.varGlyphIndexMap || {}).sort ((a, b) => a - b).map (_ => [cmap.varGlyphIndexMap[_], _]));
 
           var start = page.start;
           var end = page.end;
