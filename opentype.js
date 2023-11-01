@@ -943,6 +943,7 @@
 	 * @class
 	 */
 	var encode = {};
+	var encodeAB = {};
 	/**
 	 * @exports opentype.sizeOf
 	 * @class
@@ -1388,18 +1389,18 @@
 	 * @returns {string}
 	 */
 	decode.MACSTRING = function(dataView, offset, dataLength, encoding) {
-	    if (encoding === "x-mac-japanese") {
+	    if (encoding === 'x-mac-japanese') {
 	        // XXX wrong
-	        var d = new TextDecoder ('shift_jis');
-	        var dv = new DataView (dataView.buffer, offset, dataLength);
-	        return d.decode (dv);
-	    } else if (encoding === "x-mac-chinesetrad") {
+	        var d = new TextDecoder('shift_jis');
+	        var dv = new DataView(dataView.buffer, offset, dataLength);
+	        return d.decode(dv);
+	    } else if (encoding === 'x-mac-chinesetrad') {
 	        // XXX wrong
-	        var d = new TextDecoder ('big5');
-	        var dv = new DataView (dataView.buffer, offset, dataLength);
-	        return d.decode (dv);
+	        var d$1 = new TextDecoder('big5');
+	        var dv$1 = new DataView(dataView.buffer, offset, dataLength);
+	        return d$1.decode(dv$1);
 	    }
-	  
+
 	    var table = eightBitMacEncodings[encoding];
 	    if (table === undefined) {
 	        return undefined;
@@ -1900,6 +1901,58 @@
 	    return d;
 	};
 
+	encodeAB.TABLE = function(table) {
+	    var byteLength = sizeOf.TABLE(table);
+	    var ab = new ArrayBuffer(byteLength);
+	    var a8 = new Uint8Array(ab);
+	    var nextOffset = 0;
+	    var put = function (bytes) {
+	        for (var i = 0; i < bytes.length; i++) {
+	            a8[nextOffset++] = bytes[i];
+	        }
+	    };
+
+	    var length = table.fields.length;
+	    var subtables = [];
+	    var subtableOffsets = [];
+
+	    for (var i = 0; i < length; i += 1) {
+	        var field = table.fields[i];
+	        var value = table[field.name];
+	        if (value === undefined) {
+	            value = field.value;
+	        }
+
+	        var encodingABFunction = encodeAB[field.type];
+	        if (field.type === 'TABLE') {
+	            subtableOffsets.push(nextOffset);
+	            put([0, 0]);
+	            var ab$1 = encodingABFunction(value);
+	            subtables.push(ab$1);
+	        } else {
+	            if (encodingABFunction) {
+	                var ab$2 = encodingABFunction(value);
+	                put(new Uint8Array(ab$2));
+	            } else {
+	                var encodingFunction = encode[field.type];
+	                check.argument(encodingFunction !== undefined, 'No encoding function for field type ' + field.type + ' (' + field.name + ')');
+	                var bytes = encodingFunction(value);
+	                put(bytes);
+	            }
+	        }
+	    }
+
+	    for (var i$1 = 0; i$1 < subtables.length; i$1 += 1) {
+	        var o = subtableOffsets[i$1];
+	        a8[o] = nextOffset >> 8;
+	        a8[o + 1] = nextOffset & 0xff;
+	        var subtable8 = new Uint8Array(subtables[i$1]);
+	        put(subtable8);
+	    }
+
+	    return ab;
+	};
+
 	/**
 	 * @param {opentype.Table}
 	 * @returns {number}
@@ -1929,6 +1982,7 @@
 	};
 
 	encode.RECORD = encode.TABLE;
+	encodeAB.RECORD = encodeAB.TABLE;
 	sizeOf.RECORD = sizeOf.TABLE;
 
 	// Merge in a list of bytes.
@@ -1981,6 +2035,10 @@
 	 */
 	Table.prototype.encode = function() {
 	    return encode.TABLE(this);
+	};
+
+	Table.prototype.encodeIntoArrayBuffer = function() {
+	    return encodeAB.TABLE(this);
 	};
 
 	/**
@@ -2778,8 +2836,6 @@
 	    }) || [];
 	};
 
-
-
 	Parser.prototype.parseMinMax = function() {
 	    return this.parsePointer(function() {
 	        var record = {};
@@ -2812,6 +2868,10 @@
 	            coord.baseCoordPoint = this.parseUShort();
 	        }
 
+	        //if (coord.baseCoordFormat >= 3) {
+	        //    //XXX coord.device = ...;
+	        //}
+
 	        return coord;
 	    });
 	};
@@ -2826,7 +2886,11 @@
 
 	        if (anchor.anchorFormat === 2) {
 	            anchor.anchorPoint = this.parseUShort();
-	        }
+	        } //else if (anchor.anchorFormat === 3) {
+	        //    // XXX
+	        //    //anchor.xDeviceOffset
+	        //    //anchor.yDeviceOffset
+	        //}
 
 	        return anchor;
 	    });
@@ -2951,11 +3015,11 @@
 
 	    var groupCount;
 	    subtable.numVarSelectorRecords = groupCount = p.parseULong();
-	    subtable.varGlyphIndexMap = [];
+	    subtable.varGlyphIndexMap = {};
 
 	    for (var i = 0; i < groupCount; i += 1) {
 	        var varSelector = p.parseUint24();
-	        var indexMap = [];
+	      var indexMap = {};
 	        subtable.varGlyphIndexMap[varSelector] = indexMap;
 
 	        var defaultUVSOffset = p.parseOffset32();
@@ -3035,7 +3099,7 @@
 
 	        if (!selectedSubtable) {
 	            if ((platformID === 3 && (encodingID === 0 || encodingID === 1 || encodingID === 10)) ||
-	                (platformID === 0 && (encodingID === 0 || encodingID === 1 || encodingID === 2 || encodingId === 3 || encodingId === 4))) {
+	                (platformID === 0 && (encodingID === 0 || encodingID === 1 || encodingID === 2 || encodingID === 3 || encodingID === 4))) {
 	                selectedSubtable = subtable;
 	                cmap.format = subtable.format;
 	            }
@@ -3053,8 +3117,8 @@
 	    return cmap;
 	}
 
-	function addSegment(t, code, glyphIndex) {
-	    t.segments.push({
+	function addSegment(segments, code, glyphIndex) {
+	    segments.push({
 	        end: code,
 	        start: code,
 	        delta: -(code - glyphIndex),
@@ -3078,25 +3142,45 @@
 	    var isPlan0Only = true;
 	    var i;
 
+	    var segments = [];
+	    var vsMappings = {};
+	    var hasVS = false;
+	    var ranges = [];
 	    // Check if we need to add cmap format 12 or if format 4 only is fine
-	    for (i = glyphs.length - 1; i > 0; i -= 1) {
-	        var g = glyphs.get(i);
-	        if (g.unicode > 65535) {
-	            console.log('Adding CMAP format 12 (needed!)');
-	            isPlan0Only = false;
-	            break;
+	    for (i = 0; i < glyphs.length; i += 1) {
+	        var glyph = glyphs.get(i);
+	        for (var j = 0; j < glyph.unicodes.length; j += 1) {
+	            addSegment(segments, glyph.unicodes[j], i);
+	            if (isPlan0Only && glyph.unicodes[j] > 0xFFFF) {
+	                console.log('Adding CMAP format 12 (needed!)');
+	                isPlan0Only = false;
+	            }
+	        }
+	        for (var j$1 = 0; j$1 < glyph.vses.length; j$1 += 1) {
+	            var vs = glyph.vses[j$1];
+	            if (!vsMappings[vs[1]]) { vsMappings[vs[1]] = {}; }
+	            vsMappings[vs[1]][vs[0]] = i;
+	            hasVS = true;
+	        }
+	        if (glyph.unicodeRanges) {
+	            for (var j$2 = 0; j$2 < glyph.unicodeRanges.length; j$2++) {
+	                ranges.push([glyph.unicodeRanges[j$2], i]);
+	            }
 	        }
 	    }
+	    // Format 12 subtable is effectively required for large fonts and is
+	    // redundant but small enough for other fonts.
+	    if (!ranges.length && glyphs.length > 1000) { isPlan0Only = false; }
 
+	    var nextOffset = 12 + (isPlan0Only ? 0 : 8) + (hasVS ? 8 : 0) + (ranges.length ? 8 : 0);
 	    var cmapTable = [
 	        {name: 'version', type: 'USHORT', value: 0},
-	        {name: 'numTables', type: 'USHORT', value: isPlan0Only ? 1 : 2},
+	        {name: 'numTables', type: 'USHORT', value: 1 + (isPlan0Only ? 0 : 1) + (hasVS ? 1 : 0) + (ranges.length ? 1 : 0)},
 
 	        // CMAP 4 header
 	        {name: 'platformID', type: 'USHORT', value: 3},
 	        {name: 'encodingID', type: 'USHORT', value: 1},
-	        {name: 'offset', type: 'ULONG', value: isPlan0Only ? 12 : (12 + 8)}
-	    ];
+	        {name: 'offset', type: 'ULONG', value: nextOffset} ];
 
 	    if (!isPlan0Only)
 	        { cmapTable = cmapTable.concat([
@@ -3104,6 +3188,20 @@
 	            {name: 'cmap12PlatformID', type: 'USHORT', value: 3}, // We encode only for PlatformID = 3 (Windows) because it is supported everywhere
 	            {name: 'cmap12EncodingID', type: 'USHORT', value: 10},
 	            {name: 'cmap12Offset', type: 'ULONG', value: 0}
+	        ]); }
+
+	    if (ranges.length)
+	        { cmapTable = cmapTable.concat([
+	            {name: 'cmap13PlatformID', type: 'USHORT', value: 3},
+	            {name: 'cmap13EncodingID', type: 'USHORT', value: 10},
+	            {name: 'cmap13Offset', type: 'ULONG', value: 0}
+	        ]); }
+
+	    if (hasVS)
+	        { cmapTable = cmapTable.concat([
+	            {name: 'cmap14PlatformID', type: 'USHORT', value: 0},
+	            {name: 'cmap14EncodingID', type: 'USHORT', value: 5},
+	            {name: 'cmap14Offset', type: 'ULONG', value: 0}
 	        ]); }
 
 	    cmapTable = cmapTable.concat([
@@ -3119,18 +3217,9 @@
 
 	    var t = new table.Table('cmap', cmapTable);
 
-	    t.segments = [];
-	    for (i = 0; i < glyphs.length; i += 1) {
-	        var glyph = glyphs.get(i);
-	        for (var j = 0; j < glyph.unicodes.length; j += 1) {
-	            addSegment(t, glyph.unicodes[j], i);
-	        }
-
-	        t.segments = t.segments.sort(function (a, b) {
-	            return a.start - b.start;
-	        });
-	    }
-
+	    t.segments = segments.sort(function (a, b) {
+	        return a.start - b.start;
+	    });
 	    addTerminatorSegment(t);
 
 	    var segCount = t.segments.length;
@@ -3143,6 +3232,8 @@
 	    var idDeltas = [];
 	    var idRangeOffsets = [];
 	    var glyphIds = [];
+	    var cmap4Length = 16; // Subtable header + reservedPad
+	    var cmap4IsFull = false;
 
 	    // CMAP 12
 	    var cmap12Groups = [];
@@ -3155,14 +3246,18 @@
 	        var segment = t.segments[i];
 
 	        // CMAP 4
-	        if (segment.end <= 65535 && segment.start <= 65535) {
+	        if (segment.end <= 65535 && segment.start <= 65535 &&
+	            (!cmap4IsFull || segment.glyphIndex === undefined)) {
 	            endCounts = endCounts.concat({name: 'end_' + i, type: 'USHORT', value: segment.end});
 	            startCounts = startCounts.concat({name: 'start_' + i, type: 'USHORT', value: segment.start});
 	            idDeltas = idDeltas.concat({name: 'idDelta_' + i, type: 'SHORT', value: segment.delta});
 	            idRangeOffsets = idRangeOffsets.concat({name: 'idRangeOffset_' + i, type: 'USHORT', value: segment.offset});
+	            cmap4Length += 4 * 2;
 	            if (segment.glyphId !== undefined) {
 	                glyphIds = glyphIds.concat({name: 'glyph_' + i, type: 'USHORT', value: segment.glyphId});
+	                cmap4Length += 2;
 	            }
+	            cmap4IsFull = cmap4Length + 5 * 2 * 2 > Math.pow( 2, 16 ) - 1;
 	        } else {
 	            // Skip Unicode > 65535 (16bit unsigned max) for CMAP 4, will be added in CMAP 12
 	            segCountToRemove += 1;
@@ -3171,9 +3266,11 @@
 	        // CMAP 12
 	        // Skip Terminator Segment
 	        if (!isPlan0Only && segment.glyphIndex !== undefined) {
-	            cmap12Groups = cmap12Groups.concat({name: 'cmap12Start_' + i, type: 'ULONG', value: segment.start});
-	            cmap12Groups = cmap12Groups.concat({name: 'cmap12End_' + i, type: 'ULONG', value: segment.end});
-	            cmap12Groups = cmap12Groups.concat({name: 'cmap12Glyph_' + i, type: 'ULONG', value: segment.glyphIndex});
+	            var v = new table.Record('cmap12 value', [
+	                {name: 'start', type: 'ULONG', value: segment.start},
+	                {name: 'end', type: 'ULONG', value: segment.end},
+	                {name: 'glyph', type: 'ULONG', value: segment.glyphIndex} ]);
+	            cmap12Groups.push(v.encode());
 	        }
 	    }
 
@@ -3190,29 +3287,111 @@
 	    t.fields = t.fields.concat(idRangeOffsets);
 	    t.fields = t.fields.concat(glyphIds);
 
-	    t.cmap4Length = 14 + // Subtable header
-	        endCounts.length * 2 +
-	        2 + // reservedPad
-	        startCounts.length * 2 +
-	        idDeltas.length * 2 +
-	        idRangeOffsets.length * 2 +
-	        glyphIds.length * 2;
+	    if (cmap4Length > Math.pow( 2, 16 ) - 1) { throw new Error('Overflow of cmap4Length (' + cmap4Length + ')'); }
+	    t.cmap4Length = cmap4Length;
+	    nextOffset += cmap4Length;
 
 	    if (!isPlan0Only) {
 	        // CMAP 12 Subtable
-	        var cmap12Length = 16 + // Subtable header
-	            cmap12Groups.length * 4;
+	        var cmap12MainLength = cmap12Groups.length * 3 * 4;
+	        var cmap12Length = 16 + cmap12MainLength;
 
-	        t.cmap12Offset = 12 + (2 * 2) + 4 + t.cmap4Length;
+	        var ab = new ArrayBuffer(cmap12MainLength);
+	        var a8 = new Uint8Array(ab);
+	        var x = 0;
+	        for (var i$1 = 0; i$1 < cmap12Groups.length; i$1++) {
+	            for (var j$3 = 0; j$3 < cmap12Groups[i$1].length; j$3++) {
+	                a8[x++] = cmap12Groups[i$1][j$3];
+	            }
+	        }
+
+	        t.cmap12Offset = nextOffset;
 	        t.fields = t.fields.concat([
 	            {name: 'cmap12Format', type: 'USHORT', value: 12},
 	            {name: 'cmap12Reserved', type: 'USHORT', value: 0},
 	            {name: 'cmap12Length', type: 'ULONG', value: cmap12Length},
 	            {name: 'cmap12Language', type: 'ULONG', value: 0},
-	            {name: 'cmap12nGroups', type: 'ULONG', value: cmap12Groups.length / 3}
+	            {name: 'cmap12nGroups', type: 'ULONG', value: cmap12Groups.length},
+	            {name: 'cmap12Main', type: 'LITERAL', value: a8}
 	        ]);
 
-	        t.fields = t.fields.concat(cmap12Groups);
+	        nextOffset += cmap12Length;
+	    }
+
+	    if (ranges.length) {
+	        var cmap13Length = 2 + 2 + 4 + 4 + 4 + (4 + 4 + 4) * ranges.length;
+
+	        t.fields = t.fields.concat([
+	            {name: 'cmap13Format', type: 'USHORT', value: 13},
+	            {name: 'cmap13Reserved', type: 'USHORT', value: 0},
+	            {name: 'cmap13Length', type: 'ULONG', value: cmap13Length},
+	            {name: 'cmap13Language', type: 'ULONG', value: 0},
+	            {name: 'cmap13NumGroups', type: 'ULONG', value: ranges.length} ]);
+	        t.cmap13Offset = nextOffset;
+
+	        var i$2 = 0;
+	        ranges.sort(function (a, b) {
+	            return a[0][0] - b[0][0];
+	        }).forEach(function (range) {
+	            t.fields = t.fields.concat([
+	                {name: 'cmap13StartCharCode_' + i$2, type: 'ULONG', value: range[0][0]},
+	                {name: 'cmap13EndCharCode_' + i$2, type: 'ULONG', value: range[0][1]},
+	                {name: 'cmap13GlyphID_' + i$2, type: 'ULONG', value: range[1]} ]);
+	            i$2++;
+	        });
+	        nextOffset += cmap13Length;
+	    }
+
+	    if (hasVS) {
+	        // CMAP 14 Subtable
+	        var cmap14Length = 2 + 4 + 4; // Subtable header
+
+	        t.fields = t.fields.concat([
+	            {name: 'cmap14Format', type: 'USHORT', value: 14},
+	            {name: 'cmap14Length', type: 'ULONG', value: cmap14Length},
+	            {name: 'cmap14NumVarSelectorRecords', type: 'ULONG', value: 0} ]);
+	        t.cmap14Offset = nextOffset;
+
+	        var j$4 = 0;
+	        var nonDefaultUVSRecords = [];
+	        var uvsNextRecordOffset = 0;
+	        var uvsOffsetFields = [];
+	        Object.keys(vsMappings).sort(function (a, b) {
+	            return a - b;
+	        }).forEach(function (unicode2) {
+	            var uvsOffset = {name: 'cmap14NonDefaultUVSOffset_' + j$4, type: 'ULONG', value: uvsNextRecordOffset};
+	            uvsOffsetFields.push(uvsOffset);
+	            t.fields = t.fields.concat([
+	                {name: 'cmap14VarSelector_' + j$4, type: 'UINT24', value: parseInt(unicode2)},
+	                {name: 'cmap14DefaultUVSOffset_' + j$4, type: 'ULONG', value: 0},
+	                uvsOffset ]);
+	            var k = 0;
+	            var uvsMappings = [
+	                {name: 'cmap14NumUVSMappings_' + j$4, type: 'ULONG', value: 0} ];
+	            uvsNextRecordOffset += 4;
+	            Object.keys(vsMappings[unicode2]).sort(function (a, b) {
+	                return a - b;
+	            }).forEach(function (unicode1) {
+	                uvsMappings.push(
+	                    {name: 'cmap14UnicodeValue_' + j$4 + '_' + k, type: 'UINT24', value: parseInt(unicode1)},
+	                    {name: 'cmap14GlyphID_' + j$4 + '_' + k, type: 'USHORT', value: vsMappings[unicode2][unicode1]}
+	                );
+	                k++;
+	                uvsNextRecordOffset += 3 + 2;
+	            });
+	            uvsMappings[0].value = k;
+	            nonDefaultUVSRecords = nonDefaultUVSRecords.concat(uvsMappings);
+	            j$4++;
+	        });
+	        t.cmap14NumVarSelectorRecords = j$4;
+	        cmap14Length += (3 + 4 + 4) * j$4;
+	        t.cmap14Length = cmap14Length + uvsNextRecordOffset;
+
+	        t.fields = t.fields.concat(nonDefaultUVSRecords);
+	        uvsOffsetFields.forEach(function (field) {
+	            field.value += cmap14Length;
+	        });
+	        nextOffset += cmap14Length + uvsNextRecordOffset;
 	    }
 
 	    return t;
@@ -3629,6 +3808,7 @@
 	    this.name = options.name || null;
 	    this.unicode = options.unicode || undefined;
 	    this.unicodes = options.unicodes || options.unicode !== undefined ? [options.unicode] : [];
+	    this.vses = [];
 
 	    // But by binding these values only when necessary, we reduce can
 	    // the memory requirements by almost 3% for larger fonts.
@@ -3671,6 +3851,23 @@
 	    }
 
 	    this.unicodes.push(unicode);
+	};
+
+	/**
+	 * @param {number} - The start Unicode code point of the range.
+	 * @param {number} - The end Unicode code point of the range.
+	 */
+	Glyph.prototype.addUnicodeRange = function(unicode1, unicode2) {
+	    if (!this.unicodeRanges) { this.unicodeRanges = []; }
+	    this.unicodeRanges.push([unicode1, unicode2]);
+	};
+
+	/**
+	 * @param {number} - The Unicode code point of the base character.
+	 * @param {number} - The Unicode code point of the variation character.
+	 */
+	Glyph.prototype.addVS = function(unicode1, unicode2) {
+	    this.vses.push([unicode1, unicode2]);
 	};
 
 	/**
@@ -5304,18 +5501,76 @@
 	    return ops;
 	}
 
-	function makeCharStringsIndex(glyphs) {
-	    var t = new table.Record('CharStrings INDEX', [
-	        {name: 'charStrings', type: 'INDEX', value: []}
-	    ]);
+	function makeINDEXHeader(offsets, offset) {
 
-	    for (var i = 0; i < glyphs.length; i += 1) {
-	        var glyph = glyphs.get(i);
-	        var ops = glyphToOps(glyph);
-	        t.charStrings.push({name: glyph.name, type: 'CHARSTRING', value: ops});
+	    if (offsets.length === 1) {
+	        return [0, 0];
 	    }
 
-	    return t;
+	    var encodedOffsets = [];
+	    var offSize = (1 + Math.floor(Math.log(offset) / Math.log(2)) / 8) | 0;
+	    var offsetEncoder = [undefined, encode.BYTE, encode.USHORT, encode.UINT24, encode.ULONG][offSize];
+	    for (var i = 0; i < offsets.length; i += 1) {
+	        var encodedOffset = offsetEncoder(offsets[i]);
+	        Array.prototype.push.apply(encodedOffsets, encodedOffset);
+	    }
+
+	    return Array.prototype.concat(encode.Card16(offsets.length - 1),
+	                                  encode.OffSize(offSize),
+	                                  encodedOffsets);
+	}
+
+	function makeCharString(glyph) {
+	    var ops = glyphToOps(glyph);
+	    var length = ops.length;
+	    var d = [];
+	    for (var j = 0; j < length; j += 1) {
+	        var op = ops[j];
+	        var enc1 = encode[op.type](op.value);
+	        for (var k = 0; k < enc1.length; k++) {
+	            d.push(enc1[k]);
+	        }
+	    }
+	    return d;
+	}
+
+	Glyph._makeCharString = makeCharString;
+
+	function makeCharStringsIndex(glyphs) {
+	    var offset = 1; // First offset is always 1.
+	    var offsets = [offset];
+	    var data = [];
+	    var literals = [];
+	    var currentLiteralsLength = 1;
+	    var moveToLiteral = function () {
+	        var ab = new ArrayBuffer(offset - currentLiteralsLength);
+	        var b8 = new Uint8Array(ab);
+	        var x = 0;
+	        for (var i = 0; i < data.length; i++) {
+	            for (var j = 0; j < data[i].length; j++) {
+	                b8[x++] = data[i][j];
+	            }
+	        }
+	        literals.push(b8);
+	        currentLiteralsLength += x;
+	        data = [];
+	    };
+
+	    for (var i = 0; i < glyphs.length; i += 1) {
+	        var d = makeCharString(glyphs.get(i));
+	        data.push(d);
+	        offset += d.length;
+	        offsets.push(offset);
+
+	        if (data.length > 10000) { moveToLiteral(); }
+	    }
+	    moveToLiteral();
+
+	    var v = makeINDEXHeader(offsets, offset);
+	    var x = 0;
+	    var css = new table.Record('CharString value', [
+	        {name: 'charStrings header', type: 'LITERAL', value: v} ].concat( literals.map(function (_) { return ({name: 'charStrings data ' + x++, type: 'LITERAL', value: _}); }) ));
+	    return css;
 	}
 
 	function makePrivateDict(attrs, strings) {
@@ -6315,7 +6570,7 @@
 	                translations[language] = text;
 	            }
 
-	            name.records.push ({
+	            name.records.push({
 	                platformID: platformID,
 	                encodingID: encodingID,
 	                languageID: languageID,
@@ -6779,7 +7034,7 @@
 	            post.names = [];
 	            var nameIndexToName = standardNames.slice();
 	            delete nameIndexToName[0];
-	            for (var i$1 = 258; i$1 < maxNameIndex; i$1++) {
+	            for (var i$1 = 258; i$1 <= maxNameIndex; i$1++) {
 	                var nameLength = p.parseChar();
 	                var name = p.parseString(nameLength);
 	                post.names.push(name);
@@ -6822,7 +7077,7 @@
 	                    post.glyphIDToName[i$4] = name$3;
 	                }
 	            }
-	      
+
 	            break;
 	    }
 	    return post;
@@ -7330,17 +7585,25 @@
 	}
 
 	function computeCheckSum(bytes) {
-	    while (bytes.length % 4 !== 0) {
-	        bytes.push(0);
+	    var tail = [];
+	    var byteLength = bytes.length;
+	    while (byteLength % 4 !== 0) {
+	        tail.push(bytes[byteLength - 1]);
+	        byteLength--;
 	    }
 
 	    var sum = 0;
-	    for (var i = 0; i < bytes.length; i += 4) {
+	    for (var i = 0; i < byteLength; i += 4) {
 	        sum += (bytes[i] << 24) +
 	            (bytes[i + 1] << 16) +
 	            (bytes[i + 2] << 8) +
 	            (bytes[i + 3]);
 	    }
+
+	    sum += ((tail[0] || 0) << 24) +
+	           ((tail[1] || 0) << 16) +
+	           ((tail[2] || 0) << 8) +
+	           ((tail[3] || 0));
 
 	    sum %= Math.pow(2, 32);
 	    return sum;
@@ -7383,7 +7646,9 @@
 	        var t = tables[i];
 	        check.argument(t.tableName.length === 4, 'Table name' + t.tableName + ' is invalid.');
 	        var tableLength = t.sizeOf();
-	        var tableRecord = makeTableRecord(t.tableName, computeCheckSum(t.encode()), offset, tableLength);
+	        var ab = t.encodeIntoArrayBuffer();
+
+	        var tableRecord = makeTableRecord(t.tableName, computeCheckSum(new Uint8Array(ab)), offset, tableLength);
 	        recordFields.push({name: tableRecord.tag + ' Table Record', type: 'RECORD', value: tableRecord});
 	        tableFields.push({name: t.tableName + ' table', type: 'RECORD', value: t});
 	        offset += tableLength;
@@ -7451,35 +7716,37 @@
 
 	    for (var i = 0; i < font.glyphs.length; i += 1) {
 	        var glyph = font.glyphs.get(i);
-	        var unicode = glyph.unicode | 0;
 
 	        if (isNaN(glyph.advanceWidth)) {
 	            throw new Error('Glyph ' + glyph.name + ' (' + i + '): advanceWidth is not a number.');
 	        }
 
-	        if (firstCharIndex > unicode || firstCharIndex === undefined) {
+	        glyph.unicodes.filter(function (unicode) {
 	            // ignore .notdef char
-	            if (unicode > 0) {
+	            return unicode > 0;
+	        }).concat(glyph.unicodeRanges || []).flat().forEach(function (unicode) {
+	            if (firstCharIndex > unicode || firstCharIndex === undefined) {
 	                firstCharIndex = unicode;
 	            }
-	        }
 
-	        if (lastCharIndex < unicode) {
-	            lastCharIndex = unicode;
-	        }
+	            if (lastCharIndex < unicode) {
+	                lastCharIndex = unicode;
+	            }
 
-	        var position = os2.getUnicodeRange(unicode);
-	        if (position < 32) {
-	            ulUnicodeRange1 |= 1 << position;
-	        } else if (position < 64) {
-	            ulUnicodeRange2 |= 1 << position - 32;
-	        } else if (position < 96) {
-	            ulUnicodeRange3 |= 1 << position - 64;
-	        } else if (position < 123) {
-	            ulUnicodeRange4 |= 1 << position - 96;
-	        } else {
-	            throw new Error('Unicode ranges bits > 123 are reserved for internal usage');
-	        }
+	            // XXX does not work well with unicodeRanges
+	            var position = os2.getUnicodeRange(unicode);
+	            if (position < 32) {
+	                ulUnicodeRange1 |= 1 << position;
+	            } else if (position < 64) {
+	                ulUnicodeRange2 |= 1 << position - 32;
+	            } else if (position < 96) {
+	                ulUnicodeRange3 |= 1 << position - 64;
+	            } else if (position < 123) {
+	                ulUnicodeRange4 |= 1 << position - 96;
+	            } else {
+	                throw new Error('Unicode ranges bits > 123 are reserved for internal usage');
+	            }
+	        });
 	        // Skip non-important characters.
 	        if (glyph.name === '.notdef') { continue; }
 	        var metrics = glyph.getMetrics();
@@ -7624,8 +7891,9 @@
 	    var sfntTable = makeSfntTable(tables);
 
 	    // Compute the font's checkSum and store it in head.checkSumAdjustment.
-	    var bytes = sfntTable.encode();
-	    var checkSum = computeCheckSum(bytes);
+	    var ab = sfntTable.encodeIntoArrayBuffer();
+	    var ab8 = new Uint8Array(ab);
+	    var checkSum = computeCheckSum(ab8);
 	    var tableFields = sfntTable.fields;
 	    var checkSumAdjusted = false;
 	    for (var i$1 = 0; i$1 < tableFields.length; i$1 += 1) {
@@ -12783,10 +13051,10 @@
 	        "for script '" + (query.script) + "'."
 	    ); }
 	    var lookups = this.getFeatureLookups(feature);
-	  return this._applyFeatureLookups(query.tag, lookups, contextParams);
+	    return this._applyFeatureLookups(query.tag, lookups, contextParams);
 	};
 
-	FeatureQuery.prototype._applyFeatureLookups = function(tag, lookups, contextParams) {    
+	FeatureQuery.prototype._applyFeatureLookups = function(tag, lookups, contextParams) {
 	    var currentIndex = contextParams.index;
 	    var substitutions = [].concat(contextParams.context);
 	    for (var l = 0; l < lookups.length; l++) {
@@ -13959,14 +14227,7 @@
 	 */
 	Font.prototype.toArrayBuffer = function() {
 	    var sfntTable = this.toTables();
-	    var bytes = sfntTable.encode();
-	    var buffer = new ArrayBuffer(bytes.length);
-	    var intArray = new Uint8Array(buffer);
-	    for (var i = 0; i < bytes.length; i++) {
-	        intArray[i] = bytes[i];
-	    }
-
-	    return buffer;
+	    return sfntTable.encodeIntoArrayBuffer();
 	};
 
 	/**
@@ -14619,6 +14880,9 @@
 
 	function parseVmtxTableOnLowMemory(font, data, start, numMetrics, numGlyphs) {
 	    font._vmtxTableData = {};
+
+	    var advanceHeight;
+	    var topSideBearing;
 	    var p = new parse.Parser(data, start);
 	    for (var i = 0; i < numGlyphs; i += 1) {
 	        // If the font is monospaced, only one entry is needed. This last entry applies to all subsequent glyphs.
@@ -14802,6 +15066,10 @@
 	            });
 	        });
 	    });
+
+	    //if (base.version >= 1.1) {
+	    //    //XXX base.itemVarStoreOffset = p.parseOffset32();
+	    //}
 
 	    return base;
 	}
@@ -15018,7 +15286,7 @@
 	    for (var i = 0; i < numTables; i += 1) {
 	        var tableEntry = tableEntries[i];
 	        var table = (void 0);
-	        font.tableTags.push (tableEntry.tag);
+	        font.tableTags.push(tableEntry.tag);
 	        switch (tableEntry.tag) {
 	            case 'cmap':
 	                table = uncompressTable(data, tableEntry);
