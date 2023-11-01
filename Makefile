@@ -18,7 +18,7 @@ build: opentype.js components.js
 
 build-github-pages:
 
-opentype.js:
+opentype.js: local/generated
 	$(SAVEURL) $@ https://raw.githubusercontent.com/manakai/opentypejs/master/dist/opentype.js
 
 components.js: local/page-components.js local/time.js local/unit-number.js
