@@ -1534,7 +1534,7 @@ var defineElement = function (def) {
     if (c.glyphIndexMap || c.varGlyphIndexMap) {
       if (c.glyphIndexMap) c.glyphNumber += Object.keys (c.glyphIndexMap).length;
       Object.keys (c.varGlyphIndexMap || {}).forEach (v => {
-        c.glyphNumber += Object.keys (v).length;
+        c.glyphNumber += Object.keys (c.varGlyphIndexMap[v]).length;
       });
     }
   });
