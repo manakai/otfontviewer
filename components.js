@@ -878,6 +878,41 @@
     }, // props
   }); // <can-copy>
 
+  exportable.$paco.ondownload = (opts) => {
+    let a = document.createElement ('a');
+    a.href = opts.url;
+    a.download = opts.fileName;
+    (document.body || document.head || document.documentElement).appendChild (a);
+    a.click ();
+    a.remove ();
+  }; // $paco.ondownload
+  exportable.$paco.download = (opts) => {
+    let url;
+    let fileName = opts.fileName;
+    if (opts.url !== undefined) {
+      url = opts.url;
+    } else if (opts.blob !== undefined) {
+      url = URL.createObjectURL (opts.blob);
+      if (!fileName) fileName = opts.blob.name;
+    } else {
+      let text;
+      let mime = opts.mime || '';
+      if (opts.json !== undefined) {
+        text = JSON.stringify (opts.json);
+        if (!mime) mime = 'application/json';
+        if (!fileName) fileName = 'file.json';
+      } else {
+        text = '' + opts.string;
+        if (!fileName) fileName = 'file.txt';
+      }
+      url = 'data:' + encodeURIComponent (mime) + ',' + encodeURIComponent (text);
+    }
+    if (!fileName) fileName = 'file.dat';
+
+    url = '' + new URL (url, location.href);
+    $paco.ondownload ({url, fileName});
+  }; // $paco.download
+
   defineElement ({
     name: 'popup-menu',
     props: {
