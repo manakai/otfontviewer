@@ -4113,20 +4113,32 @@ TER.defs = {"dts":{"dtsjp1":[[null,["グレゴリオ暦西暦",["Y",0]]],[-96275
       value = Math.round (value * 100 * 10) / 10;
     } else if (type === 'duration') {
       e.textContent = '';
-      var format = e.getAttribute ('format') || 'h:mm:ss.ss';
+      let format = e.getAttribute ('format') || 'h:mm:ss.ss';
+      let unit = e.getAttribute ('unit');
       var h = Math.floor (value / 60 / 60);
       var m = Math.floor (value / 60) - h * 60;
       var s = value - m * 60 - h * 60 * 60;
-      if (format === 'h:mm:ss' || format === 'hh:mm:ss') {
+      if (format === 'h:mm:ss' || format === 'hh:mm:ss' ||
+          format === 'h:m:s') {
         s = Math.floor (s);
       } else {
         s = s.toFixed (2);
       }
-      e.appendChild (document.createElement ('number-value')).textContent = (!(format === 'hh:mm:ss' || format === 'hh:mm:ss.ss') || h >= 10) ? h : "0" + h;
-      e.appendChild (document.createElement ('number-separator')).textContent = ":";
-      e.appendChild (document.createElement ('number-value')).textContent = m >= 10 ? m : "0" + m;
-      e.appendChild (document.createElement ('number-separator')).textContent = ":";
-      e.appendChild (document.createElement ('number-value')).textContent = s >= 10 ? s : "0" + s;
+      e.appendChild (document.createElement ('number-value')).textContent = (!(format === 'hh:mm' || format === 'hh:mm:ss' || format === 'hh:mm:ss.ss') || h >= 10) ? h : "0" + h;
+      e.appendChild (document.createElement ('number-separator')).textContent = (unit === '時間' ? '時間' : ":");
+      e.appendChild (document.createElement ('number-value')).textContent = (format === 'h:m' || format === 'h:m:s' || format === 'h:m:s.ss' || m >= 10) ? m : "0" + m;
+      if (!(format === 'h:mm' || format === 'hh:mm')) {
+        e.appendChild (document.createElement ('number-separator')).textContent = (unit === '時間' ? '分' : ":");
+        if (unit === '時間') {
+          let ss = (format === 'h:m:s' || format === 'h:m:s.ss' || s >= 10) ? '' + s : "0" + s;
+          ss = ss.split (/\./);
+          e.appendChild (document.createElement ('number-value')).textContent = ss[0];
+          e.appendChild (document.createElement ('number-separator')).textContent = (unit === '時間' ? '秒' : ":");
+          if (ss.length > 1) e.appendChild (document.createElement ('number-value')).textContent = ss[1];
+        } else {
+          e.appendChild (document.createElement ('number-value')).textContent = (format === 'h:m:s' || format === 'h:m:s.ss' || s >= 10) ? s : "0" + s;
+        }
+      }
       e.removeAttribute ('hasseparator');
       return;
     } else if (type === 'bytes') {
@@ -4276,7 +4288,7 @@ TER.defs = {"dts":{"dtsjp1":[[null,["グレゴリオ暦西暦",["Y",0]]],[-96275
 
 /*
 
-Copyright 2017-2023 Wakaba <wakaba@suikawiki.org>.
+Copyright 2017-2024 Wakaba <wakaba@suikawiki.org>.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
