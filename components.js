@@ -770,7 +770,7 @@
     var t = (cssText || 'auto');
 
     // XXX
-    t = t.replace (/\\(00[0189A-Fa-f][0-9A-Fa-f]|[1-9A-Fa-f][0-9A-Fa-f]{3}|[1-9A-Fa-f][0-9A-Fa-f]{4}|a\s?)/g,
+    t = t.replace (/\\(00[0189A-Fa-f][0-9A-Fa-f]|[1-9A-Fa-f][0-9A-Fa-f]{3}|[1-9A-Fa-f][0-9A-Fa-f]{4}|a)\s?/g,
                    (__, _) => String.fromCodePoint (parseInt (_, 16)));
 
     var m = t.match (/^\s*"([^"\\]*)"\s*$/); // XXX escape
