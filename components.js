@@ -4161,8 +4161,9 @@ TER.defs = {"dts":{"dtsjp1":[[null,["グレゴリオ暦西暦",["Y",0]]],[-96275
       e.appendChild (document.createElement ('number-value')).textContent = (!(format === 'hh:mm' || format === 'hh:mm:ss' || format === 'hh:mm:ss.ss') || h >= 10) ? h : "0" + h;
       e.appendChild (document.createElement ('number-separator')).textContent = (unit === '時間' ? '時間' : ":");
       e.appendChild (document.createElement ('number-value')).textContent = (format === 'h:m' || format === 'h:m:s' || format === 'h:m:s.ss' || m >= 10) ? m : "0" + m;
-      if (!(format === 'h:mm' || format === 'hh:mm')) {
-        e.appendChild (document.createElement ('number-separator')).textContent = (unit === '時間' ? '分' : ":");
+      if (unit === "時間") e.appendChild (document.createElement ('number-separator')).textContent = (unit === '時間' ? '分' : ":");
+      if (!(format === 'h:m' || format === 'h:mm' || format === 'hh:mm')) {
+        if (unit !== '時間') e.appendChild (document.createElement ('number-separator')).textContent = (unit === '時間' ? '分' : ":");
         if (unit === '時間') {
           let ss = (format === 'h:m:s' || format === 'h:m:s.ss' || s >= 10) ? '' + s : "0" + s;
           ss = ss.split (/\./);
