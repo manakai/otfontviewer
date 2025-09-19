@@ -880,16 +880,29 @@
     props: {
       pcInit: function () {
         // recompute!
-        var m = parseCSSString (getComputedStyle (this).getPropertyValue ('--paco-copy-button-label'), 'Copy');
+        let cs = getComputedStyle (this);
+        let m = parseCSSString (cs.getPropertyValue ('--paco-copy-button-label'), 'Copy');
+        let pos = (cs.getPropertyValue ('--paco-copy-button-position') || 'after').toLowerCase ().replace (/^\s+/, '').replace (/\s+$/, '');
 
-        var b = document.createElement ('button');
-        b.type = 'button';
-        b.textContent = m;
-        b.onclick = () => this.pcCopy ();
-        this.appendChild (b);
+        this.querySelectorAll ('button[is=copy-button]').forEach (b => {
+          b.onclick = () => this.pcCopy ();
+        });
+
+        if (pos !== 'none') {
+          let b = document.createElement ('button');
+          b.type = 'button';
+          b.className = this.getAttribute ('buttonclass') || '';
+          b.textContent = m;
+          b.onclick = () => this.pcCopy ();
+          if (pos === 'after') {
+            this.insertBefore (b, this.firstChild);
+          } else {
+            this.appendChild (b);
+          }
+        }
       }, // pcInit
       pcCopy: function () {
-        var e = this.querySelector ('code, data, time, output, cite');
+        var e = this.querySelector ('code, data, time, output, cite, unit-number');
         if (!e) throw new Error ('No copied data element');
 
         var text;
@@ -1519,7 +1532,7 @@
       lcGetNextInterval: function (currentInterval) {
         if (!currentInterval) return 10 * 1000;
         var interval = currentInterval * 2;
-        if (interval > 10*60*1000) interval * 10*60*1000;
+        if (interval > 10*60*1000) interval = 10*60*1000;
         return interval;
       }, // lcGetNextInterval
       load: function (opts) {
