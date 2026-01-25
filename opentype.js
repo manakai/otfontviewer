@@ -1880,6 +1880,11 @@
 	            subtableOffsets.push(d.length);
 	            d.push(0, 0);
 	            subtables.push(bytes);
+	        } else if (field.type === 'ARRAYBUFFERLIST') {
+	            var offsets = [];
+	            subtableOffsets.push(offsets);
+	            var bytes$1 = encodingFunction(value);
+	            subtables.push(bytes$1);
 	        } else {
 	            for (var j = 0; j < bytes.length; j++) {
 	                d.push(bytes[j]);
@@ -1929,10 +1934,15 @@
 	            put([0, 0]);
 	            var ab$1 = encodingABFunction(value);
 	            subtables.push(ab$1);
+	        } else if (field.type === 'ARRAYBUFFERLIST') {
+	            var offsets = [];
+	            subtableOffsets.push(offsets);
+	            var ab$2 = encodingABFunction(value);
+	            subtables.push(ab$2);
 	        } else {
 	            if (encodingABFunction) {
-	                var ab$2 = encodingABFunction(value);
-	                put(new Uint8Array(ab$2));
+	                var ab$3 = encodingABFunction(value);
+	                put(new Uint8Array(ab$3));
 	            } else {
 	                var encodingFunction = encode[field.type];
 	                check.argument(encodingFunction !== undefined, 'No encoding function for field type ' + field.type + ' (' + field.name + ')');
@@ -1992,6 +2002,30 @@
 
 	sizeOf.LITERAL = function(v) {
 	    return v.length;
+	};
+
+	encode.ARRAYBUFFERLIST = function(v) {
+	    throw new Error('Not supported');
+	};
+	encodeAB.ARRAYBUFFERLIST = function(v) {
+	    var s = sizeOf.ARRAYBUFFERLIST(v);
+	    var ab = new ArrayBuffer(s);
+	    var ab8 = new Uint8Array(ab);
+	    var o = 0;
+	    for (var i = 0; i < v.length; i += 1) {
+	        ab8.set(new Uint8Array(v[i]), o);
+	        o += v[i].byteLength;
+	    }
+	    return ab;
+	};
+
+	sizeOf.ARRAYBUFFERLIST = function(v) {
+	    var s = 0;
+	    for (var i = 0; i < v.length; i += 1) {
+	        var w = v[i];
+	        s += w.byteLength;
+	    }
+	    return s;
 	};
 
 	// Table metadata
@@ -8213,7 +8247,6 @@
 	    }, font.tables.os2));
 
 	    var hmtxTable = hmtx.make(font.glyphs);
-	    var cmapTable = cmap.make(font.glyphs);
 
 	    var englishFamilyName = font.getEnglishName('fontFamily');
 	    var englishStyleName = font.getEnglishName('fontSubfamily');
@@ -8262,7 +8295,13 @@
 	    var metaTable = (font.metas && Object.keys(font.metas).length > 0) ? meta.make(font.metas) : undefined;
 
 	    // The order does not matter because makeSfntTable() will sort them.
-	    var tables = [headTable, hheaTable, maxpTable, os2Table, nameTable, cmapTable, postTable, cffTable, hmtxTable];
+	    var tables = [headTable, hheaTable, maxpTable, os2Table, nameTable, postTable, cffTable, hmtxTable];
+	    if (font.tables && font.tables.cmap && font.tables.cmap.arrayBufferList) {
+	        tables.push(new table.Table('cmap', [
+	            {name: 'all', type: 'ARRAYBUFFERLIST', value: font.tables.cmap.arrayBufferList} ]));
+	    } else {
+	        tables.push(cmap.make(font.glyphs));
+	    }
 	    if (ltagTable) {
 	        tables.push(ltagTable);
 	    }
@@ -13437,6 +13476,7 @@
 	 */
 	FeatureQuery.prototype.lookupFeature = function (query) {
 	    var contextParams = query.contextParams;
+	    var currentIndex = contextParams.index;
 	    var feature = this.getFeature({
 	        tag: query.tag, script: query.script
 	    });
@@ -13446,11 +13486,6 @@
 	        "for script '" + (query.script) + "'."
 	    ); }
 	    var lookups = this.getFeatureLookups(feature);
-	    return this._applyFeatureLookups(query.tag, lookups, contextParams);
-	};
-
-	FeatureQuery.prototype._applyFeatureLookups = function(tag, lookups, contextParams) {
-	    var currentIndex = contextParams.index;
 	    var substitutions = [].concat(contextParams.context);
 	    for (var l = 0; l < lookups.length; l++) {
 	        var lookupTable = lookups[l];
@@ -13465,7 +13500,7 @@
 	                    substitution = lookup(contextParams.current);
 	                    if (substitution) {
 	                        substitutions.splice(currentIndex, 1, new SubstitutionAction({
-	                            id: 11, tag: tag, substitution: substitution
+	                            id: 11, tag: query.tag, substitution: substitution
 	                        }));
 	                    }
 	                    break;
@@ -13473,7 +13508,7 @@
 	                    substitution = lookup(contextParams.current);
 	                    if (substitution) {
 	                        substitutions.splice(currentIndex, 1, new SubstitutionAction({
-	                            id: 12, tag: tag, substitution: substitution
+	                            id: 12, tag: query.tag, substitution: substitution
 	                        }));
 	                    }
 	                    break;
@@ -13481,7 +13516,7 @@
 	                    substitution = lookup(contextParams);
 	                    if (Array.isArray(substitution) && substitution.length) {
 	                        substitutions.splice(currentIndex, 1, new SubstitutionAction({
-	                            id: 63, tag: tag, substitution: substitution
+	                            id: 63, tag: query.tag, substitution: substitution
 	                        }));
 	                    }
 	                    break;
@@ -13489,7 +13524,7 @@
 	                    substitution = lookup(contextParams);
 	                    if (substitution) {
 	                        substitutions.splice(currentIndex, 1, new SubstitutionAction({
-	                            id: 41, tag: tag, substitution: substitution
+	                            id: 41, tag: query.tag, substitution: substitution
 	                        }));
 	                    }
 	                    break;
@@ -13497,7 +13532,7 @@
 	                    substitution = lookup(contextParams.current);
 	                    if (substitution) {
 	                        substitutions.splice(currentIndex, 1, new SubstitutionAction({
-	                            id: 21, tag: tag, substitution: substitution
+	                            id: 21, tag: query.tag, substitution: substitution
 	                        }));
 	                    }
 	                    break;
