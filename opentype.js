@@ -8278,7 +8278,6 @@
 	    }
 
 	    var languageTags = [];
-	    var nameTable = _name.make(names, languageTags);
 	    var ltagTable = (languageTags.length > 0 ? ltag.make(languageTags) : undefined);
 
 	    var postTable = post.make();
@@ -8295,7 +8294,13 @@
 	    var metaTable = (font.metas && Object.keys(font.metas).length > 0) ? meta.make(font.metas) : undefined;
 
 	    // The order does not matter because makeSfntTable() will sort them.
-	    var tables = [headTable, hheaTable, maxpTable, os2Table, nameTable, postTable, cffTable, hmtxTable];
+	    var tables = [headTable, hheaTable, maxpTable, os2Table, postTable, cffTable, hmtxTable];
+	    if (font.tables && font.tables.name && font.tables.name.arrayBufferList) {
+	        tables.push(new table.Table('name', [
+	            {name: 'all', type: 'ARRAYBUFFERLIST', value: font.tables.name.arrayBufferList} ]));
+	    } else {
+	        tables.push(_name.make(names, languageTags));
+	    }
 	    if (font.tables && font.tables.cmap && font.tables.cmap.arrayBufferList) {
 	        tables.push(new table.Table('cmap', [
 	            {name: 'all', type: 'ARRAYBUFFERLIST', value: font.tables.cmap.arrayBufferList} ]));
@@ -8306,16 +8311,32 @@
 	        tables.push(ltagTable);
 	    }
 	    // Optional tables
-	    if (font.tables.gsub) {
+	    if (font.tables && font.tables.gdef && font.tables.gdef.arrayBufferList) {
+	        tables.push(new table.Table('GDEF', [
+	            {name: 'all', type: 'ARRAYBUFFERLIST', value: font.tables.gdef.arrayBufferList} ]));
+	    }
+	    if (font.tables && font.tables.gsub && font.tables.gsub.arrayBufferList) {
+	        tables.push(new table.Table('GSUB', [
+	            {name: 'all', type: 'ARRAYBUFFERLIST', value: font.tables.gsub.arrayBufferList} ]));
+	    } else if (font.tables.gsub) {
 	        tables.push(gsub.make(font.tables.gsub));
 	    }
-	    if (font.tables.gpos) {
+	    if (font.tables && font.tables.gpos && font.tables.gpos.arrayBufferList) {
+	        tables.push(new table.Table('GPOS', [
+	            {name: 'all', type: 'ARRAYBUFFERLIST', value: font.tables.gpos.arrayBufferList} ]));
+	    } else if (font.tables.gpos) {
 	        tables.push(gpos.make(font.tables.gpos));
 	    }
-	    if (font.tables.cpal) {
+	    if (font.tables && font.tables.cpal && font.tables.cpal.arrayBufferList) {
+	        tables.push(new table.Table('CPAL', [
+	            {name: 'all', type: 'ARRAYBUFFERLIST', value: font.tables.cpal.arrayBufferList} ]));
+	    } else if (font.tables.cpal) {
 	        tables.push(cpal.make(font.tables.cpal));
 	    }
-	    if (font.tables.colr) {
+	    if (font.tables && font.tables.colr && font.tables.colr.arrayBufferList) {
+	        tables.push(new table.Table('COLR', [
+	            {name: 'all', type: 'ARRAYBUFFERLIST', value: font.tables.colr.arrayBufferList} ]));
+	    } else if (font.tables.colr) {
 	        tables.push(colr.make(font.tables.colr));
 	    }
 	    if (metaTable) {
