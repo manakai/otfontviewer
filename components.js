@@ -689,11 +689,15 @@
           ('|label-set| element does not have |name| attribute');
         }
         addElementDef ('labelSet', name, this);
+        this._cache = {};
       }, // pcInit
       getLabel: function (key) {
-        var cs = getComputedStyle (this);
-        var label = parseCSSString (cs.getPropertyValue ('--label-' + key), key);
-        return label;
+        let label = this._cache[key];
+        if (label) return label;
+        
+        let cs = getComputedStyle (this);
+        label = parseCSSString (cs.getPropertyValue ('--label-' + key), key);
+        return this._cache[key] = label;
       }, // getLabel
     },
   }); // <label-set>
